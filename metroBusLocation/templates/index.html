@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metro Bus Tracker - Plateau State</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --secondary: #34a853;
+            --accent: #fbbc04;
+            --background: #f8f9fa;
+            --text: #202124;
+            --text-light: #5f6368;
+            --white: #ffffff;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, #0d47a1 100%);
+            color: var(--white);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--white);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .logo h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .logo span {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--secondary);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 80px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background: #fafafa;
+        }
+
+        .sidebar-header h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.1rem;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: var(--white);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            opacity: 0.5;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--white);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+            color: var(--text-light);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab:hover {
+            background: #f5f5f5;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        /* Content Areas */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Bus Stops List */
+        .stop-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stop-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .stop-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
+            transform: translateX(4px);
+        }
+
+        .stop-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .stop-card.selected {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(26, 115, 232, 0.05) 0%, rgba(26, 115, 232, 0.02) 100%);
+        }
+
+        .stop-card.selected::before {
+            transform: scaleY(1);
+        }
+
+        .stop-name {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stop-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 16px;
+        }
+
+        .stop-route {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .route-badge {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        /* ETA Panel */
+        .eta-panel {
+            background: linear-gradient(135deg, var(--primary) 0%, #0d47a1 100%);
+            color: var(--white);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .eta-panel.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .eta-panel h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .eta-stop-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .eta-bus-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .eta-bus-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .eta-bus-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--white);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .eta-bus-route {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .eta-time {
+            text-align: right;
+        }
+
+        .eta-minutes {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .eta-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .eta-distance {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        /* Routes List */
+        .route-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .route-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .route-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .route-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .route-name {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .route-description {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+
+        .route-stops {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .route-stop {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--white);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            max-width: 200px;
+        }
+
+        .legend-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 1rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            padding: 12px 24px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        /* Custom Leaflet Markers */
+        .bus-stop-marker {
+            background: var(--primary);
+            border: 3px solid var(--white);
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .bus-marker {
+            background: var(--secondary);
+            border: 3px solid var(--white);
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column-reverse;
+                height: auto;
+                min-height: calc(100vh - 80px);
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 50vh;
+            }
+
+            .map-container {
+                height: 50vh;
+            }
+
+            .logo h1 {
+                font-size: 1.2rem;
+            }
+
+            .header-info {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🚌</div>
+            <div>
+                <h1>Metro Bus Tracker</h1>
+                <span>Plateau State, Nigeria</span>
+            </div>
+        </div>
+        <div class="header-info">
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span>Live Tracking</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Find Your Bus Stop</h2>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search bus stops...">
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-tab="stops">Bus Stops</div>
+                <div class="tab" data-tab="routes">Routes</div>
+            </div>
+
+            <div class="content-area">
+                <!-- ETA Panel -->
+                <div class="eta-panel" id="etaPanel">
+                    <h3>⏱️ Estimated Arrival</h3>
+                    <div class="eta-stop-name" id="etaStopName">Select a stop</div>
+                    <div id="etaBusesList"></div>
+                </div>
+
+                <!-- Bus Stops Tab -->
+                <div class="tab-content active" id="stopsTab">
+                    <div id="stopsList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading bus stops...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Routes Tab -->
+                <div class="tab-content" id="routesTab">
+                    <div id="routesList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading routes...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-legend">
+                <div class="legend-title">Legend</div>
+                <div class="legend-item">
+                    <span class="legend-icon">🚌</span>
+                    <span>Active Bus</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">🚏</span>
+                    <span>Bus Stop</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        © 2024 Metro Bus Tracker - Plateau State. Built for better public transport.
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Global variables
+        let map;
+        let stops = [];
+        let routes = [];
+        let buses = [];
+        let stopMarkers = {};
+        let busMarkers = {};
+        let selectedStop = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadData();
+            setupEventListeners();
+            // Refresh bus positions every 5 seconds
+            setInterval(updateBusPositions, 5000);
+        });
+
+        // Initialize Leaflet Map
+        function initMap() {
+            // Center on Jos, Plateau State
+            map = L.map('map').setView([9.9485, 8.8850], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Load data from API
+        async function loadData() {
+            try {
+                const [stopsRes, routesRes, busesRes] = await Promise.all([
+                    fetch('/api/stops'),
+                    fetch('/api/routes'),
+                    fetch('/api/buses')
+                ]);
+
+                stops = await stopsRes.json();
+                routes = await routesRes.json();
+                buses = await busesRes.json();
+
+                renderStops();
+                renderRoutes();
+                renderStopsOnMap();
+                renderBusesOnMap();
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        // Update bus positions
+        async function updateBusPositions() {
+            try {
+                const response = await fetch('/api/buses');
+                buses = await response.json();
+                renderBusesOnMap();
+
+                // Update ETA if a stop is selected
+                if (selectedStop) {
+                    updateETA(selectedStop);
+                }
+            } catch (error) {
+                console.error('Error updating bus positions:', error);
+            }
+        }
+
+        // Render stops list
+        function renderStops(filter = '') {
+            const stopsList = document.getElementById('stopsList');
+            const filteredStops = stops.filter(stop => 
+                stop.name.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            if (filteredStops.length === 0) {
+                stopsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-text">No stops found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            stopsList.innerHTML = filteredStops.map(stop => `
+                <div class="stop-card ${selectedStop === stop.id ? 'selected' : ''}" data-stop-id="${stop.id}">
+                    <div class="stop-name">
+                        <div class="stop-icon">🚏</div>
+                        ${stop.name}
+                    </div>
+                    <div class="stop-route">
+                        <span class="route-badge" style="background: ${stop.route_color}"></span>
+                        ${stop.route_name}
+                    </div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.stop-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const stopId = parseInt(card.dataset.stopId);
+                    selectStop(stopId);
+                });
+            });
+        }
+
+        // Render routes list
+        function renderRoutes() {
+            const routesList = document.getElementById('routesList');
+
+            routesList.innerHTML = routes.map(route => {
+                const routeStops = stops.filter(s => s.route_id === route.id);
+                return `
+                    <div class="route-card" data-route-id="${route.id}">
+                        <div class="route-header">
+                            <div class="route-color" style="background: ${route.color}"></div>
+                            <div class="route-name">${route.name}</div>
+                        </div>
+                        <div class="route-description">${route.description}</div>
+                        <div class="route-stops">
+                            ${routeStops.map(s => `<span class="route-stop">${s.name}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers to focus on route
+            document.querySelectorAll('.route-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const routeId = parseInt(card.dataset.routeId);
+                    focusOnRoute(routeId);
+                });
+            });
+        }
+
+        // Render stops on map
+        function renderStopsOnMap() {
+            stops.forEach(stop => {
+                const marker = L.marker([stop.latitude, stop.longitude], {
+                    icon: L.divIcon({
+                        className: 'bus-stop-marker',
+                        html: '<div style="width: 30px; height: 30px; background: #1a73e8; border: 3px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚏</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="min-width: 150px;">
+                        <strong>${stop.name}</strong><br>
+                        <span style="color: ${stop.route_color}">${stop.route_name}</span>
+                    </div>
+                `);
+
+                marker.on('click', () => {
+                    selectStop(stop.id);
+                });
+
+                stopMarkers[stop.id] = marker;
+            });
+        }
+
+        // Render buses on map
+        function renderBusesOnMap() {
+            // Remove old markers
+            Object.values(busMarkers).forEach(marker => map.removeLayer(marker));
+            busMarkers = {};
+
+            buses.forEach(bus => {
+                const marker = L.marker([bus.current_lat, bus.current_lng], {
+                    icon: L.divIcon({
+                        className: 'bus-marker',
+                        html: `<div style="width: 36px; height: 36px; background: ${bus.route_color || '#34a853'}; border: 3px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚌</div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
+                    })
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="min-width: 150px;">
+                        <strong>${bus.route_name || 'Bus ' + bus.id}</strong><br>
+                        <span>Speed: ${bus.speed} km/h</span><br>
+                        <span>Last updated: ${new Date(bus.last_updated).toLocaleTimeString()}</span>
+                    </div>
+                `);
+
+                busMarkers[bus.id] = marker;
+            });
+        }
+
+        // Select a stop and show ETA
+        async function selectStop(stopId) {
+            selectedStop = stopId;
+            
+            // Update UI
+            document.querySelectorAll('.stop-card').forEach(card => {
+                card.classList.toggle('selected', parseInt(card.dataset.stopId) === stopId);
+            });
+
+            const stop = stops.find(s => s.id === stopId);
+            
+            // Pan to stop
+            if (stopMarkers[stopId]) {
+                map.setView([stop.latitude, stop.longitude], 15);
+            }
+
+            // Show and update ETA panel
+            await updateETA(stopId);
+        }
+
+        // Update ETA display
+        async function updateETA(stopId) {
+            const etaPanel = document.getElementById('etaPanel');
+            const etaStopName = document.getElementById('etaStopName');
+            const etaBusesList = document.getElementById('etaBusesList');
+
+            try {
+                const response = await fetch(`/api/eta/${stopId}`);
+                const data = await response.json();
+
+                etaPanel.classList.add('active');
+                etaStopName.textContent = data.stop.name;
+
+                if (data.buses.length === 0) {
+                    etaBusesList.innerHTML = `
+                        <div class="empty-state" style="color: white; padding: 20px;">
+                            <div>No buses on this route</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                etaBusesList.innerHTML = data.buses.map(bus => `
+                    <div class="eta-bus-item">
+                        <div class="eta-bus-info">
+                            <div class="eta-bus-icon">🚌</div>
+                            <div>
+                                <div class="eta-bus-route">${bus.route_name}</div>
+                                <div class="eta-distance">${bus.distance_km} km away</div>
+                            </div>
+                        </div>
+                        <div class="eta-time">
+                            <div class="eta-minutes">${bus.eta_minutes}</div>
+                            <div class="eta-label">minutes</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error fetching ETA:', error);
+            }
+        }
+
+        // Focus on a specific route
+        function focusOnRoute(routeId) {
+            const routeStops = stops.filter(s => s.route_id === routeId);
+            if (routeStops.length > 0) {
+                const bounds = L.latLngBounds(routeStops.map(s => [s.latitude, s.longitude]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+                });
+            });
+
+            // Search functionality
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                renderStops(e.target.value);
+            });
+        }
+    </script>
+</body>
+</html>
